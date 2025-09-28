@@ -22,8 +22,17 @@ console.log(`CORS Policy: Allowing requests from origin: ${allowedOrigin}`);
 
 app.use(cors(corsOptions))
 
+// Increase payload limits for large code submissions
+app.use(express.json({ limit: '10mb' }))
+app.use(express.urlencoded({ limit: '10mb', extended: true }))
 
-app.use(express.json())
+// Add timeout for long-running AI requests
+app.use((req, res, next) => {
+    // Set timeout to 5 minutes for AI processing
+    req.setTimeout(300000);
+    res.setTimeout(300000);
+    next();
+});
 
 app.get('/', (req, res) => {
     res.send('Hello World')

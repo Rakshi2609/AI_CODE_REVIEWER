@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import "prismjs/themes/prism-tomorrow.css"
 import Editor from "react-simple-code-editor"
 import prism from "prismjs"
@@ -21,19 +21,90 @@ function App() {
   const [showHome, setShowHome] = useState(true)
   const [showAbout, setShowAbout] = useState(false)
   const [aboutLoading, setAboutLoading] = useState(false)
+  const [scrollProgress, setScrollProgress] = useState(0)
+  const reviewOutputRef = useRef(null)
 
   useEffect(() => { prism.highlightAll() }, [code, review])
   useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem('theme-preference', theme); }, [theme])
+  
+  // Handle scroll progress for large reviews
+  useEffect(() => {
+    const handleScroll = () => {
+      if (reviewOutputRef.current) {
+        const element = reviewOutputRef.current;
+        const scrollTop = element.scrollTop;
+        const scrollHeight = element.scrollHeight;
+        const clientHeight = element.clientHeight;
+        const progress = scrollHeight > clientHeight ? (scrollTop / (scrollHeight - clientHeight)) * 100 : 0;
+        setScrollProgress(progress);
+        
+        // Add or remove has-scroll class based on content overflow
+        if (scrollHeight > clientHeight) {
+          element.classList.add('has-scroll');
+        } else {
+          element.classList.remove('has-scroll');
+        }
+      }
+    };
+
+    const reviewElement = reviewOutputRef.current;
+    if (reviewElement) {
+      reviewElement.addEventListener('scroll', handleScroll);
+      // Check scroll immediately when review content changes
+      handleScroll();
+      return () => reviewElement.removeEventListener('scroll', handleScroll);
+    }
+  }, [review])
+
+  // Check for scrollable content when review changes
+  useEffect(() => {
+    if (reviewOutputRef.current && review) {
+      const element = reviewOutputRef.current;
+      setTimeout(() => {
+        const scrollHeight = element.scrollHeight;
+        const clientHeight = element.clientHeight;
+        if (scrollHeight > clientHeight) {
+          element.classList.add('has-scroll');
+        } else {
+          element.classList.remove('has-scroll');
+        }
+      }, 100); // Small delay to ensure content is rendered
+    }
+  }, [review])
 
   async function reviewCode() {
     if (!code.trim()) return
+    
+    // Check code size before sending
+    const codeSize = new Blob([code]).size;
+    if (codeSize > 5 * 1024 * 1024) { // 5MB limit
+      setError('Code is too large. Please submit smaller code chunks for better review quality.');
+      return;
+    }
+    
     setLoading(true); setError(''); setReview('')
     try {
       const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
-      const response = await axios.post(`${apiBaseUrl}/ai/get-review`, { code })
-      setReview(response.data)
+      const response = await axios.post(`${apiBaseUrl}/ai/get-review`, { code }, {
+        timeout: 300000, // 5 minute timeout
+        maxContentLength: 50 * 1024 * 1024, // 50MB response limit
+        maxBodyLength: 10 * 1024 * 1024 // 10MB request limit
+      })
+      
+      // Handle new response format
+      if (response.data.review) {
+        setReview(response.data.review)
+        console.log('Review metadata:', response.data.metadata)
+      } else {
+        // Fallback for old format
+        setReview(response.data)
+      }
     } catch (e) {
-      setError(e?.response?.data?.message || 'Failed to fetch review. Please try again.')
+      if (e.code === 'ECONNABORTED') {
+        setError('Request timeout. The code might be too complex for analysis. Please try with smaller code chunks.')
+      } else {
+        setError(e?.response?.data?.message || 'Failed to fetch review. Please try again.')
+      }
     } finally { setLoading(false) }
   }
 
@@ -259,20 +330,51 @@ function App() {
                 <h2>AI Review</h2>
                 <div className="panel-tools small-hint">{loading ? 'Generating...' : review ? 'Complete' : 'Idle'}</div>
               </div>
-              <div className="review-output" data-empty={!review && !loading}>
-                {loading && (
-                  <div className="skeleton-stack">
-                    {Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton" />)}
-                  </div>
-                )}
-                {!loading && !review && !error && (
-                  <div className="placeholder fade-in">Run a review to see AI feedback here.</div>
-                )}
-                {!loading && review && (
-                  <div className="review-markdown fade-in" key={review.slice(0,40)}>
-                    <Markdown rehypePlugins={[rehypeHighlight]}>{review}</Markdown>
-                  </div>
-                )}
+              {review && (
+                <div className="content-stats">
+                  <span>Review Length: {review.length.toLocaleString()} characters</span>
+                  <span>Scroll Progress: {Math.round(scrollProgress)}%</span>
+                </div>
+              )}
+              {review && (
+                <div className="review-progress">
+                  <div className="review-progress-bar" style={{ width: `${scrollProgress}%` }}></div>
+                </div>
+              )}
+              <div ref={reviewOutputRef} className="review-output custom-scroll" data-empty={!review && !loading}>
+                <div className="review-content">
+                  {review && review.length > 5000 && (
+                    <div className="large-content-warning">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                        <path d="m9 12 2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLineCap="round" strokeLineJoin="round"/>
+                      </svg>
+                      <span>Large review generated - scroll to read the complete analysis</span>
+                    </div>
+                  )}
+                  {review && (
+                    <div className="scroll-indicator">↓ Scroll for more ↓</div>
+                  )}
+                  {loading && (
+                    <div className="skeleton-stack">
+                      {Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton" />)}
+                    </div>
+                  )}
+                  {!loading && !review && !error && (
+                    <div className="placeholder fade-in">
+                      Run a review to see AI feedback here.
+                      <br/><br/>
+                      The scroll bar will appear when content exceeds the container height.
+                      <br/><br/>
+                      Try submitting some code to test the scroll functionality.
+                    </div>
+                  )}
+                  {!loading && review && (
+                    <div className="review-markdown fade-in" key={review.slice(0,40)}>
+                      <Markdown rehypePlugins={[rehypeHighlight]}>{review}</Markdown>
+                    </div>
+                  )}
+                </div>
               </div>
             </section>
           </div>

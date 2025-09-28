@@ -106,7 +106,21 @@ body { margin:0; font-family: var(--font-stack); background: var(--bg); color: v
 .workspace { flex:1; display:flex; flex-direction:column; padding:1.1rem 0 1.6rem; }
 .workspace .container { flex:1; display:flex; gap:1.1rem; max-width:1400px; margin:0 auto; width:100%; padding: 0 clamp(.9rem, 1.5vw + .4rem, 1.8rem); }
 
-.panel { position:relative; flex:1; border:1px solid var(--panel-border); background:var(--panel); backdrop-filter: blur(22px) saturate(160%); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); display:flex; flex-direction:column; min-height:0; overflow:hidden; transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); }
+.panel { 
+  position:relative; 
+  flex:1; 
+  border:1px solid var(--panel-border); 
+  background:var(--panel); 
+  backdrop-filter: blur(22px) saturate(160%); 
+  border-radius: var(--radius-lg); 
+  box-shadow: var(--shadow-sm); 
+  display:flex; 
+  flex-direction:column; 
+  height: 600px; /* Fixed height for consistent panel size */
+  max-height: calc(100vh - 160px);
+  overflow:hidden; 
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); 
+}
 .panel:before { content:""; position:absolute; inset:0; padding:1px; border-radius:inherit; background:linear-gradient(135deg, rgba(255,255,255,0.08), rgba(99,102,241,0.4) 40%, rgba(236,72,153,0.35) 70%, rgba(255,255,255,0.05)); -webkit-mask:linear-gradient(#000,#000) content-box, linear-gradient(#000,#000); -webkit-mask-composite: xor; mask:linear-gradient(#000,#000) content-box, linear-gradient(#000,#000); mask-composite: exclude; opacity:.7; pointer-events:none; transition: opacity 0.3s ease; }
 .panel:hover:before { opacity:1; }
 .panel:hover { transform: translateY(-4px) scale(1.01); box-shadow: var(--shadow); }
@@ -119,11 +133,214 @@ body { margin:0; font-family: var(--font-stack); background: var(--bg); color: v
 .panel-header h2 { margin:0; font-size:.95rem; font-weight:600; letter-spacing:.5px; text-transform:uppercase; color:var(--text-dim); }
 .panel-tools { display:flex; align-items:center; gap:.45rem; font-size:.7rem; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); }
 
-.editor-wrapper { position:relative; flex:1; min-height:0; border-radius:0 0 var(--radius-lg) var(--radius-lg); overflow:auto; font-family: var(--code-font); border:1px solid rgba(255,255,255,0.04); }
+.editor-wrapper { 
+  position:relative; 
+  height: 500px; /* Fixed height same as review-output */
+  min-height:0; 
+  border-radius:0 0 var(--radius-lg) var(--radius-lg); 
+  overflow: hidden; /* Let child elements handle scrolling */
+  font-family: var(--code-font); 
+  border:1px solid rgba(255,255,255,0.04);
+  padding:0; /* Remove padding to let pre handle it */
+  font-size:.9rem; 
+  line-height:1.5; 
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+/* Force the react-simple-code-editor container to scroll */
+.editor-wrapper > div {
+  height: 100% !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scrollbar-width: auto !important;
+  scrollbar-color: var(--accent) rgba(255,255,255,0.15) !important;
+}
+
+/* Override global scrollbar hiding for editor wrapper */
+.editor-wrapper::-webkit-scrollbar {
+  width: 14px !important;
+  display: block !important;
+  background: rgba(255,255,255,0.05);
+  border-radius: 7px;
+}
+
+.editor-wrapper::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.1) !important;
+  border-radius: 7px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.editor-wrapper::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--accent), var(--accent-accent)) !important;
+  border-radius: 7px;
+  border: 2px solid rgba(255,255,255,0.1);
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+.editor-wrapper::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--accent-accent), var(--accent)) !important;
+  box-shadow: 0 0 10px rgba(var(--accent-glow), 0.4);
+  transform: scale(1.05);
+}
+
 .editor-wrapper:before { content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(160deg, rgba(99,102,241,.4), rgba(236,72,153,.35)); opacity:.25; mix-blend-mode:overlay; }
 
 /* Code editor base styling override */
-.editor-wrapper pre { margin:0 !important; background: linear-gradient(160deg,#0e1117,#171c23 60%, #1f2732); padding:1rem !important; font-size:14px; line-height:1.4; border-radius:0 0 var(--radius-lg) var(--radius-lg); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04); }
+.editor-wrapper pre { 
+  margin:0 !important; 
+  background: linear-gradient(160deg,#0e1117,#171c23 60%, #1f2732); 
+  padding:.9rem 1rem !important; 
+  font-size:.75rem; 
+  line-height:1.4; 
+  border-radius: var(--radius); 
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+  overflow: visible; /* Change to visible to let parent handle scrolling */
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  position: relative;
+  /* Remove height constraints to let content flow naturally */
+  min-height: 400px; /* Ensure enough content to trigger parent scroll */
+}
+
+/* Custom scrollbar for code blocks in webkit browsers */
+.editor-wrapper pre::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.editor-wrapper pre::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.05);
+  border-radius: 3px;
+}
+
+.editor-wrapper pre::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.3);
+  border-radius: 3px;
+}
+
+.editor-wrapper pre::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.5);
+}
+
+/* Scroll indicator for editor wrapper */
+.editor-wrapper::after {
+  content: '↕ Scroll for more';
+  position: absolute;
+  bottom: 10px;
+  right: 20px;
+  padding: 4px 8px;
+  background: rgba(var(--accent-glow), 0.1);
+  color: var(--accent);
+  font-size: 0.7rem;
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 10;
+}
+
+.editor-wrapper.has-scroll::after {
+  opacity: 0.8;
+}
+
+.editor-wrapper:hover.has-scroll::after {
+  opacity: 1;
+}
+
+.editor-wrapper.has-scroll {
+  padding-bottom: 2rem; /* Add extra padding when scrollable to ensure content isn't hidden */
+}
+
+.editor-wrapper[data-empty='true'] { justify-content:center; align-items:center; color:var(--text-dim); }
+
+/* Ensure editor content can scroll */
+.editor-wrapper .editor-content {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Style for textarea or text input in editor */
+.editor-wrapper textarea,
+.editor-wrapper .code-input,
+.editor-wrapper > div {
+  min-height: 500px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: var(--code-font);
+  font-size: .75rem;
+  line-height: 1.4;
+  padding: 1rem 1.2rem;
+  resize: none;
+  outline: none;
+  overflow-y: auto !important;
+  scrollbar-width: auto !important;
+  scrollbar-color: var(--accent) rgba(255,255,255,0.15) !important;
+}
+
+/* Target react-simple-code-editor specific containers */
+.editor-wrapper > div > textarea,
+.editor-wrapper > div > pre {
+  overflow-y: auto !important;
+  max-height: none !important;
+  height: 100% !important;
+  scrollbar-width: auto !important;
+  scrollbar-color: var(--accent) rgba(255,255,255,0.15) !important;
+}
+
+.editor-wrapper textarea::-webkit-scrollbar,
+.editor-wrapper .code-input::-webkit-scrollbar,
+.editor-wrapper > div::-webkit-scrollbar,
+.editor-wrapper > div > textarea::-webkit-scrollbar,
+.editor-wrapper > div > pre::-webkit-scrollbar {
+  width: 14px !important;
+  display: block !important;
+  background: rgba(255,255,255,0.05);
+  border-radius: 7px;
+}
+
+.editor-wrapper textarea::-webkit-scrollbar-track,
+.editor-wrapper .code-input::-webkit-scrollbar-track,
+.editor-wrapper > div::-webkit-scrollbar-track,
+.editor-wrapper > div > textarea::-webkit-scrollbar-track,
+.editor-wrapper > div > pre::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.1) !important;
+  border-radius: 7px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.editor-wrapper textarea::-webkit-scrollbar-thumb,
+.editor-wrapper .code-input::-webkit-scrollbar-thumb,
+.editor-wrapper > div::-webkit-scrollbar-thumb,
+.editor-wrapper > div > textarea::-webkit-scrollbar-thumb,
+.editor-wrapper > div > pre::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--accent), var(--accent-accent)) !important;
+  border-radius: 7px;
+  border: 2px solid rgba(255,255,255,0.1);
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+.editor-wrapper textarea::-webkit-scrollbar-thumb:hover,
+.editor-wrapper .code-input::-webkit-scrollbar-thumb:hover,
+.editor-wrapper > div::-webkit-scrollbar-thumb:hover,
+.editor-wrapper > div > textarea::-webkit-scrollbar-thumb:hover,
+.editor-wrapper > div > pre::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--accent-accent), var(--accent)) !important;
+  box-shadow: 0 0 10px rgba(var(--accent-glow), 0.4);
+  transform: scale(1.05);
+}
+
+/* Smooth scrolling behavior */
+.editor-wrapper {
+  scroll-behavior: smooth;
+}
 
 :root[data-theme='light'] .editor-wrapper pre {
   background: linear-gradient(160deg,#f8fafc,#f1f5f9 60%, #e2e8f0);
@@ -159,10 +376,132 @@ body { margin:0; font-family: var(--font-stack); background: var(--bg); color: v
 .small-hint { font-size:.65rem; }
 
 /* Review Output */
-.review-output { flex:1; overflow:auto; padding:1rem 1.2rem 1.4rem; font-size:.9rem; line-height:1.5; display:flex; flex-direction:column; gap:1rem; position:relative; }
+.review-output { 
+  height: 500px; /* Fixed height instead of flex:1 */
+  overflow-y: auto !important; /* Change from scroll to auto for better UX */
+  overflow-x: hidden;
+  padding:1rem 1.2rem 1.4rem; 
+  font-size:.9rem; 
+  line-height:1.5; 
+  display:flex; 
+  flex-direction:column; 
+  gap:1rem; 
+  position:relative;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  /* Force scrollbar to show */
+  scrollbar-width: auto !important;
+  scrollbar-color: var(--accent) rgba(255,255,255,0.15) !important;
+}
+
+/* Override global scrollbar hiding for review output */
+.review-output::-webkit-scrollbar {
+  width: 14px !important;
+  display: block !important;
+  background: rgba(255,255,255,0.05);
+  border-radius: 7px;
+}
+
+.review-output::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.1) !important;
+  border-radius: 7px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.review-output::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--accent), var(--accent-accent)) !important;
+  border-radius: 7px;
+  border: 2px solid rgba(255,255,255,0.1);
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+.review-output::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--accent-accent), var(--accent)) !important;
+  box-shadow: 0 0 10px rgba(var(--accent-glow), 0.4);
+  transform: scale(1.05);
+}
 .review-output[data-empty='true'] { justify-content:center; align-items:center; color:var(--text-dim); }
+
+/* Ensure review content can scroll */
+.review-output .review-content {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Force minimum height for content to trigger scrollbar when needed */
+.review-output .review-markdown {
+  min-height: 100px; /* Ensures content exists to potentially overflow */
+}
+
+/* Scroll indicator for review output */
+.review-output::after {
+  content: '↕ Scroll for more';
+  position: absolute;
+  bottom: 10px;
+  right: 20px;
+  padding: 4px 8px;
+  background: rgba(var(--accent-glow), 0.1);
+  color: var(--accent);
+  font-size: 0.7rem;
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 10;
+}
+
+.review-output.has-scroll::after {
+  opacity: 0.8;
+}
+
+.review-output:hover.has-scroll::after {
+  opacity: 1;
+}
+
+.review-output.has-scroll {
+  padding-bottom: 2rem; /* Add extra padding when scrollable to ensure content isn't hidden */
+}
 .review-output h1, .review-output h2, .review-output h3 { line-height:1.2; }
-.review-output pre { background:#111927; padding:.9rem 1rem; border-radius: var(--radius); font-size:.75rem; overflow:auto; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06); }
+.review-output pre { 
+  background:#111927; 
+  padding:.9rem 1rem; 
+  border-radius: var(--radius); 
+  font-size:.75rem; 
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 300px; /* Reduced from 400px to fit better in fixed container */
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+  position: relative;
+  /* Custom scrollbar for code blocks */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.3) rgba(255,255,255,0.1);
+}
+
+/* Custom scrollbar for code blocks in webkit browsers */
+.review-output pre::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.review-output pre::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.05);
+  border-radius: 3px;
+}
+
+.review-output pre::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.3);
+  border-radius: 3px;
+}
+
+.review-output pre::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.5);
+}
 .review-output code:not(pre code) { background:rgba(255,255,255,0.08); padding:.15rem .4rem; border-radius:6px; font-size:.75rem; }
 
 :root[data-theme='light'] .review-output pre {
@@ -190,7 +529,12 @@ body { margin:0; font-family: var(--font-stack); background: var(--bg); color: v
   border-color: rgba(15,23,42,0.08);
 }
 /* Markdown refinement */
-.review-markdown { animation: contentPop .6s cubic-bezier(.25,.8,.25,1); }
+.review-markdown { 
+  animation: contentPop .6s cubic-bezier(.25,.8,.25,1);
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
 @keyframes contentPop { 0% { opacity:0; transform:scale(.985) translateY(4px); } 100% { opacity:1; transform:scale(1) translateY(0); } }
 .review-output ul, .review-output ol { padding-left:1.2rem; display:grid; gap:.4rem; }
 .review-output li { position:relative; line-height:1.4; }
@@ -240,13 +584,13 @@ body { margin:0; font-family: var(--font-stack); background: var(--bg); color: v
 .app-footer .footer-content { display:flex; flex-wrap:wrap; align-items:center; gap:.75rem; max-width:1400px; width:100%; padding: 0 1.4rem; }
 .app-footer .sep { flex:1; height:1px; background:linear-gradient(90deg, rgba(255,255,255,0.25), transparent); }
 
-/* Hide scrollbars globally but keep functionality */
-* {
+/* Hide scrollbars globally but keep functionality - EXCEPT for review-output and editor-wrapper */
+*:not(.review-output):not(.editor-wrapper):not(.editor-wrapper *) {
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge */
 }
 
-*::-webkit-scrollbar {
+*:not(.review-output):not(.editor-wrapper):not(.editor-wrapper *)::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
 }
 
@@ -274,6 +618,150 @@ body { margin:0; font-family: var(--font-stack); background: var(--bg); color: v
 
 .custom-scroll::-webkit-scrollbar-thumb:hover {
   background: rgba(255,255,255,0.3);
+}
+
+/* Remove duplicate enhanced scrollbars section - already defined above */
+
+/* Large content handling */
+.large-content-warning {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.1));
+  border: 1px solid rgba(99,102,241,0.2);
+  border-radius: var(--radius);
+  font-size: 0.8rem;
+  color: var(--accent-accent);
+  margin-bottom: 1rem;
+}
+
+.content-stats {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  border-bottom: 1px solid var(--panel-border);
+  padding: 0.5rem 1rem;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+}
+
+.scroll-indicator {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  color: var(--accent);
+  font-size: 0.8rem;
+  pointer-events: none;
+}
+
+.review-output:hover .scroll-indicator {
+  opacity: 0.6;
+}
+
+/* Better handling for very long lines */
+.review-output p,
+.review-output li {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+
+.review-output table {
+  table-layout: fixed;
+  word-wrap: break-word;
+}
+
+.review-output td,
+.review-output th {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 0;
+}
+
+/* Code blocks in review output */
+.review-output pre code {
+  display: block;
+  max-height: 300px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--accent-glow), 0.3) transparent;
+}
+
+.review-output pre code::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.review-output pre code::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.2);
+}
+
+.review-output pre code::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 3px;
+}
+
+/* Long text sections */
+.review-output > div > * {
+  margin-bottom: 1rem;
+}
+
+.review-output > div > *:last-child {
+  margin-bottom: 0;
+}
+
+/* Expandable sections for very long reviews */
+.review-section {
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  margin: 1rem 0;
+}
+
+.review-section-header {
+  padding: 0.75rem 1rem;
+  background: rgba(255,255,255,0.03);
+  border-bottom: 1px solid var(--panel-border);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.review-section-content {
+  padding: 1rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* Smooth scrolling behavior */
+.review-output {
+  scroll-behavior: smooth;
+}
+
+/* Progress indicator for long content */
+.review-progress {
+  position: sticky;
+  top: 0;
+  height: 2px;
+  background: var(--panel-border);
+  z-index: 20;
+}
+
+.review-progress-bar {
+  height: 100%;
+  background: var(--gradient-accent);
+  width: 0%;
+  transition: width 0.3s ease;
 }
 
 /* Responsive */
