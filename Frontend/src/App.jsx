@@ -2,6 +2,13 @@ import { useState, useEffect, useRef } from 'react'
 import "prismjs/themes/prism-tomorrow.css"
 import Editor from "react-simple-code-editor"
 import prism from "prismjs"
+// Load Prism language components for highlighting
+import "prismjs/components/prism-javascript";
+import "prismjs/components/prism-typescript";
+import "prismjs/components/prism-python";
+import "prismjs/components/prism-c";
+import "prismjs/components/prism-cpp";
+import "prismjs/components/prism-java";
 import Markdown from "react-markdown"
 import rehypeHighlight from "rehype-highlight";
 import "highlight.js/styles/github-dark.css";
@@ -9,6 +16,7 @@ import axios from 'axios'
 import './App.css'
 
 function App() {
+  const [language, setLanguage] = useState('javascript')
   const [code, setCode] = useState(`function sum(a, b) {\n  return a + b;\n}`)
   const [review, setReview] = useState('')
   const [loading, setLoading] = useState(false)
@@ -24,7 +32,7 @@ function App() {
   const [scrollProgress, setScrollProgress] = useState(0)
   const reviewOutputRef = useRef(null)
 
-  useEffect(() => { prism.highlightAll() }, [code, review])
+  useEffect(() => { prism.highlightAll() }, [code, review, language])
   useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem('theme-preference', theme); }, [theme])
   
   // Handle scroll progress for large reviews
@@ -72,6 +80,33 @@ function App() {
     }
   }, [review])
 
+  const prismIdFor = (lang) => ({
+    javascript: 'javascript',
+    typescript: 'typescript',
+    python: 'python',
+    c: 'c',
+    cpp: 'cpp',
+    java: 'java'
+  }[lang] || 'clike')
+
+  const sampleForLanguage = (lang) => ({
+    javascript: `function sum(a, b) {\n  return a + b;\n}\nconsole.log(sum(2, 3));`,
+    typescript: `function sum(a: number, b: number): number {\n  return a + b;\n}\nconsole.log(sum(2, 3));`,
+    python: `def sum(a, b):\n    return a + b\n\nprint(sum(2, 3))`,
+    c: `#include <stdio.h>\n\nint sum(int a, int b) {\n    return a + b;\n}\n\nint main() {\n    printf("%d\\n", sum(2, 3));\n    return 0;\n}`,
+    cpp: `#include <iostream>\n\nint sum(int a, int b) {\n    return a + b;\n}\n\nint main() {\n    std::cout << sum(2, 3) << std::endl;\n    return 0;\n}`,
+    java: `public class Main {\n  static int sum(int a, int b) {\n    return a + b;\n  }\n  public static void main(String[] args) {\n    System.out.println(sum(2, 3));\n  }\n}`
+  }[lang] || '')
+
+  function onChangeLanguage(newLang) {
+    setLanguage(newLang)
+    // If editor is empty or contains the previous sample, load a representative sample for the new language
+    const allSamples = ['javascript','typescript','python','c','cpp','java'].map(sampleForLanguage)
+    if (!code.trim() || allSamples.includes(code)) {
+      setCode(sampleForLanguage(newLang))
+    }
+  }
+
   async function reviewCode() {
     if (!code.trim()) return
     
@@ -85,7 +120,8 @@ function App() {
     setLoading(true); setError(''); setReview('')
     try {
       const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
-      const response = await axios.post(`${apiBaseUrl}/ai/get-review`, { code }, {
+      // Prefer separate language endpoint; backend also accepts body.language for compatibility
+      const response = await axios.post(`${apiBaseUrl}/ai/get-review/${language}`, { code, language }, {
         timeout: 300000, // 5 minute timeout
         maxContentLength: 50 * 1024 * 1024, // 50MB response limit
         maxBodyLength: 10 * 1024 * 1024 // 10MB request limit
@@ -306,6 +342,24 @@ function App() {
             <section className="panel left" aria-label="Code editor section">
               <div className="panel-header">
                 <h2>Source Code</h2>
+                <div className="language-switcher" role="tablist" aria-label="Select language">
+                  {[
+                    {key:'javascript', label:'JS'},
+                    {key:'typescript', label:'TS'},
+                    {key:'python', label:'Python'},
+                    {key:'c', label:'C'},
+                    {key:'cpp', label:'C++'},
+                    {key:'java', label:'Java'}
+                  ].map(l => (
+                    <button
+                      key={l.key}
+                      role="tab"
+                      aria-selected={language===l.key}
+                      className={`lang-btn ${language===l.key ? 'active' : ''}`}
+                      onClick={() => onChangeLanguage(l.key)}
+                    >{l.label}</button>
+                  ))}
+                </div>
                 <div className="panel-tools">
                   <button className="btn tiny" onClick={clearCode} disabled={!code.trim()}>Clear</button>
                   <button className="btn tiny" onClick={copyCode}>{copied ? 'Copied' : 'Copy'}</button>
@@ -316,7 +370,7 @@ function App() {
                 <Editor
                   value={code}
                   onValueChange={setCode}
-                  highlight={value => prism.highlight(value, prism.languages.javascript, 'javascript')}
+                  highlight={value => prism.highlight(value, prism.languages[prismIdFor(language)] || prism.languages.clike, prismIdFor(language))}
                   padding={14}
                   style={{ fontFamily: '"Fira Code", "Fira Mono", monospace', fontSize: 15, height: '100%', width: '100%' }}
                 />

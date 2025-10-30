@@ -58,21 +58,51 @@ OUTPUT FORMAT (adapt for large code):
 });
 
 
-async function generateContent(code) {
+async function generateContent(code, language) {
     try {
         // Check code size and adjust approach
         const codeSize = Buffer.byteLength(code, 'utf8');
         console.log(`Processing code review for ${codeSize} bytes`);
         
+        // Build an optional language-specific context
+        const lang = language || 'auto';
+        const languageLabel = {
+            javascript: 'JavaScript',
+            typescript: 'TypeScript',
+            python: 'Python',
+            c: 'C',
+            cpp: 'C++',
+            java: 'Java',
+            auto: 'Auto-detect'
+        }[lang];
+
+        const languageFocus = {
+            javascript: `• Prefer modern ES2020+ syntax, avoid common pitfalls with async/await, and validate DOM/Node-specific APIs when relevant.`,
+            typescript: `• Ensure strong typing, proper generics, and strict compiler options. Avoid 'any' and leverage utility types.`,
+            python: `• Follow PEP 8, prefer idiomatic constructs, manage virtual environments and dependencies, and watch for mutable default args.`,
+            c: `• Focus on memory safety, pointer correctness, bounds checking, and undefined behavior.`,
+            cpp: `• Prefer RAII, smart pointers, const correctness, move semantics, and modern C++ (C++17/20) best practices.`,
+            java: `• Ensure proper exception handling, use streams/optionals judiciously, immutable data where helpful, and thread-safety where applicable.`,
+            auto: `• Detect the language and tailor feedback and code examples accordingly.`
+        }[lang];
+
         let prompt;
         if (codeSize > 50000) { // For very large code (>50KB)
             prompt = `LARGE CODEBASE REVIEW (${Math.round(codeSize/1024)}KB):
 Please provide a comprehensive but focused review of this large codebase. Focus on the most critical issues, patterns, and improvements.
 
+Language: ${languageLabel}
+Language-specific priorities:
+${languageFocus}
+
 Code to review:
 ${code}`;
         } else {
-            prompt = `Please review the following code:
+            prompt = `Please review the following code with the following context.
+
+Language: ${languageLabel}
+Language-specific priorities:
+${languageFocus}
 
 ${code}`;
         }
