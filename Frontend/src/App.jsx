@@ -160,17 +160,59 @@ function App() {
     }, 800);
   }
 
+  // History-aware navigation helpers so routes persist across hard refresh
+  function navigateTo(path) {
+    try { window.history.pushState({}, '', path); } catch (e) { /* ignore */ }
+  }
+  function navigateToWorkspace() { navigateTo('/workspace'); goToWorkspace(); }
+  function navigateToHome() { navigateTo('/'); goHome(); }
+  function navigateToAbout() { navigateTo('/about'); goToAbout(); }
+
+  // On mount: respect current URL so hard refresh lands on correct view
+  useEffect(() => {
+    const path = window.location.pathname || '/';
+    if (path === '/' || path === '') {
+      goHome();
+    } else if (path.startsWith('/about')) {
+      // show about with a short loading effect
+      setAboutLoading(true);
+      setShowHome(false);
+      setTimeout(() => { setShowAbout(true); setAboutLoading(false); }, 300);
+    } else if (path.startsWith('/workspace')) {
+      setShowHome(false); setShowAbout(false);
+    } else {
+      // unknown path - keep URL but fallback to home view
+      goHome();
+    }
+
+    const onPop = () => {
+      const p = window.location.pathname || '/';
+      if (p === '/' || p === '') {
+        goHome();
+      } else if (p.startsWith('/about')) {
+        setShowHome(false); setShowAbout(true);
+      } else if (p.startsWith('/workspace')) {
+        setShowHome(false); setShowAbout(false);
+      } else {
+        goHome();
+      }
+    };
+
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
   return (
     <div className={`app-shell ${theme}`}>
       <header className="app-header" role="banner">
-        <div className="header-content">
-          <div className="brand" onClick={goHome} style={{cursor: 'pointer'}}>
+          <div className="header-content">
+          <div className="brand" onClick={navigateToHome} style={{cursor: 'pointer'}}>
             <span className="logo-gradient">AI Code Review</span>
             <span className="tagline">Instant insights for your snippets</span>
           </div>
           <div className="header-actions">
-            {(!showHome || showAbout) && <button className="btn subtle" onClick={goHome}>← Home</button>}
-            {!showAbout && <button className="btn subtle" onClick={goToAbout}>About</button>}
+            {(!showHome || showAbout) && <button className="btn subtle" onClick={navigateToHome}>← Home</button>}
+            {!showAbout && <button className="btn subtle" onClick={navigateToAbout}>About</button>}
             <button className="btn subtle" onClick={toggleTheme} aria-label="Toggle theme">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</button>
           </div>
         </div>
@@ -281,7 +323,7 @@ function App() {
                 Get instant, professional code reviews powered by advanced AI. 
                 Improve code quality, catch bugs, and learn best practices - all in seconds.
               </p>
-              <button className="btn-hero" onClick={goToWorkspace}>
+              <button className="btn-hero" onClick={navigateToWorkspace}>
                 Start Reviewing Code
                 <span className="hero-arrow">→</span>
               </button>
