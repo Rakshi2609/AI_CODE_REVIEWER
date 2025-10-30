@@ -7,5 +7,8 @@ const router = express.Router();
 // Also supports providing { language } in the JSON body.
 router.post("/get-review/:language?", aiController.getReview)
 
+// AI suggested fix endpoint
+router.post("/get-fix/:language?", aiController.getFix)
+
 
 module.exports = router;    

@@ -19,8 +19,21 @@ function App() {
   const [language, setLanguage] = useState('javascript')
   const [code, setCode] = useState(`function sum(a, b) {\n  return a + b;\n}`)
   const [review, setReview] = useState('')
+  const [fix, setFix] = useState('')
   const [loading, setLoading] = useState(false)
+  const [fixing, setFixing] = useState(false)
   const [error, setError] = useState('')
+  const [fixError, setFixError] = useState('')
+  // Editor UX
+  const [wrapLines, setWrapLines] = useState(() => {
+    const saved = localStorage.getItem('wrap-lines');
+    return saved ? saved === 'true' : true;
+  })
+  const [leftWidth, setLeftWidth] = useState(() => {
+    const v = Number(localStorage.getItem('left-width')); return Number.isFinite(v) && v>=25 && v<=75 ? v : 50;
+  })
+  const [score, setScore] = useState(null)
+  const [isResizing, setIsResizing] = useState(false)
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem('theme-preference');
     return saved === 'light' || saved === 'dark' ? saved : 'dark';
@@ -31,9 +44,42 @@ function App() {
   const [aboutLoading, setAboutLoading] = useState(false)
   const [scrollProgress, setScrollProgress] = useState(0)
   const reviewOutputRef = useRef(null)
+  const fileInputRef = useRef(null)
+  const containerRef = useRef(null)
+
+  // Review guidance controls
+  const [tone, setTone] = useState(() => localStorage.getItem('tone') || 'mentor')
+  const [focus, setFocus] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('focus')) || ['best-practices']; } catch { return ['best-practices']; }
+  })
 
   useEffect(() => { prism.highlightAll() }, [code, review, language])
   useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem('theme-preference', theme); }, [theme])
+  useEffect(() => { localStorage.setItem('wrap-lines', String(wrapLines)); }, [wrapLines])
+  useEffect(() => { localStorage.setItem('left-width', String(leftWidth)); }, [leftWidth])
+  useEffect(() => { localStorage.setItem('tone', tone); }, [tone])
+  useEffect(() => { localStorage.setItem('focus', JSON.stringify(focus)); }, [focus])
+  // Persist and restore code/language
+  useEffect(() => {
+    const savedCode = localStorage.getItem('saved-code');
+    const savedLang = localStorage.getItem('saved-lang');
+    if (savedCode) setCode(savedCode);
+    if (savedLang) setLanguage(savedLang);
+    // Load from share hash if present (#s=...)
+    if (window.location.hash.startsWith('#s=')) {
+      try {
+        const b64 = window.location.hash.slice(3);
+        const json = decodeURIComponent(escape(atob(b64)));
+        const data = JSON.parse(json);
+        if (data.code) setCode(data.code);
+        if (data.language) setLanguage(data.language);
+        // remove hash to keep history clean
+        history.replaceState({}, '', window.location.pathname);
+      } catch {}
+    }
+  }, [])
+  useEffect(() => { localStorage.setItem('saved-code', code); }, [code])
+  useEffect(() => { localStorage.setItem('saved-lang', language); }, [language])
   
   // Handle scroll progress for large reviews
   useEffect(() => {
@@ -107,6 +153,83 @@ function App() {
     }
   }
 
+  // Estimate file extension by language
+  const extForLang = (lang) => ({ javascript:'js', typescript:'ts', python:'py', c:'c', cpp:'cpp', java:'java' }[lang] || 'txt')
+
+  // File operations
+  function triggerUpload() { fileInputRef.current?.click(); }
+  async function handleFileChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    setCode(text);
+    // infer language from extension
+    const name = file.name.toLowerCase();
+    if (name.endsWith('.js')) setLanguage('javascript');
+    else if (name.endsWith('.ts')) setLanguage('typescript');
+    else if (name.endsWith('.py')) setLanguage('python');
+    else if (name.endsWith('.java')) setLanguage('java');
+    else if (name.endsWith('.c')) setLanguage('c');
+    else if (name.endsWith('.cpp') || name.endsWith('.cc') || name.endsWith('.cxx')) setLanguage('cpp');
+    e.target.value = '';
+  }
+  function downloadCode() {
+    const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `snippet.${extForLang(language)}`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+  function exportReview() {
+    if (!review) return;
+    const blob = new Blob([review], { type: 'text/markdown;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'review.md';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+  function exportFix() {
+    if (!fix) return;
+    const blob = new Blob([fix], { type: 'text/markdown;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'fix.patch.md';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+  function copyReview() {
+    if (!review) return;
+    navigator.clipboard.writeText(review);
+  }
+  function copyFix() { if (!fix) return; navigator.clipboard.writeText(fix); }
+  function toggleWrap() { setWrapLines(v => !v); }
+  function shareLink() {
+    try {
+      const payload = { code, language };
+      const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+      const url = `${location.origin}${location.pathname}#s=${b64}`;
+      navigator.clipboard.writeText(url);
+      setCopied(true); setTimeout(() => setCopied(false), 1600)
+    } catch {}
+  }
+
+  // Resizable panels
+  function onStartResize(e) {
+    e.preventDefault(); setIsResizing(true);
+    const onMove = (ev) => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = ev.clientX - rect.left;
+      const pct = Math.min(75, Math.max(25, (x / rect.width) * 100));
+      setLeftWidth(pct);
+    };
+    const onUp = () => { setIsResizing(false); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
+
   async function reviewCode() {
     if (!code.trim()) return
     
@@ -117,11 +240,11 @@ function App() {
       return;
     }
     
-    setLoading(true); setError(''); setReview('')
+  setLoading(true); setError(''); setReview(''); setScore(null);
     try {
       const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
       // Prefer separate language endpoint; backend also accepts body.language for compatibility
-      const response = await axios.post(`${apiBaseUrl}/ai/get-review/${language}`, { code, language }, {
+      const response = await axios.post(`${apiBaseUrl}/ai/get-review/${language}`, { code, language, focus, tone }, {
         timeout: 300000, // 5 minute timeout
         maxContentLength: 50 * 1024 * 1024, // 50MB response limit
         maxBodyLength: 10 * 1024 * 1024 // 10MB request limit
@@ -131,9 +254,14 @@ function App() {
       if (response.data.review) {
         setReview(response.data.review)
         console.log('Review metadata:', response.data.metadata)
+        // try parse score e.g., "Review Score (X/10)"
+        const m = String(response.data.review).match(/Review\s*Score\s*\((\d+(?:\.\d+)?)\s*\/\s*10\)/i);
+        setScore(m ? Math.max(0, Math.min(10, parseFloat(m[1]))) : null)
       } else {
         // Fallback for old format
         setReview(response.data)
+        const m = String(response.data).match(/Review\s*Score\s*\((\d+(?:\.\d+)?)\s*\/\s*10\)/i);
+        setScore(m ? Math.max(0, Math.min(10, parseFloat(m[1]))) : null)
       }
     } catch (e) {
       if (e.code === 'ECONNABORTED') {
@@ -142,6 +270,32 @@ function App() {
         setError(e?.response?.data?.message || 'Failed to fetch review. Please try again.')
       }
     } finally { setLoading(false) }
+  }
+
+  async function requestFix() {
+    if (!code.trim()) return;
+    const codeSize = new Blob([code]).size;
+    if (codeSize > 5 * 1024 * 1024) {
+      setFixError('Code is too large. Please submit smaller code chunks.');
+      return;
+    }
+    setFixing(true); setFixError(''); setFix('');
+    try {
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+      const response = await axios.post(`${apiBaseUrl}/ai/get-fix/${language}`, { code, language, focus, tone }, {
+        timeout: 300000,
+        maxContentLength: 50 * 1024 * 1024,
+        maxBodyLength: 10 * 1024 * 1024
+      })
+      if (response.data.fix) {
+        setFix(response.data.fix)
+      } else {
+        setFix(String(response.data))
+      }
+    } catch (e) {
+      if (e.code === 'ECONNABORTED') setFixError('Request timeout while generating fix.');
+      else setFixError(e?.response?.data?.message || 'Failed to generate fix. Please try again.');
+    } finally { setFixing(false); }
   }
 
   function toggleTheme() { setTheme(t => t === 'dark' ? 'light' : 'dark') }
@@ -159,6 +313,18 @@ function App() {
       setAboutLoading(false);
     }, 800);
   }
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        reviewCode();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [code, language])
 
   // History-aware navigation helpers so routes persist across hard refresh
   function navigateTo(path) {
@@ -380,8 +546,8 @@ function App() {
         </main>
       ) : (
         <main className="workspace" role="main">
-          <div className="container">
-            <section className="panel left" aria-label="Code editor section">
+          <div className="container" ref={containerRef}>
+            <section className="panel left" aria-label="Code editor section" style={{flex: '0 0 auto', width: `${leftWidth}%`}}>
               <div className="panel-header">
                 <h2>Source Code</h2>
                 <div className="language-switcher" role="tablist" aria-label="Select language">
@@ -403,12 +569,34 @@ function App() {
                   ))}
                 </div>
                 <div className="panel-tools">
+                  <input ref={fileInputRef} type="file" accept=".js,.ts,.py,.c,.cpp,.cc,.cxx,.java,.txt" style={{display:'none'}} onChange={handleFileChange} />
+                  <button className="btn tiny" onClick={triggerUpload}>Upload</button>
+                  <button className="btn tiny" onClick={downloadCode} disabled={!code.trim()}>Download</button>
+                  <button className="btn tiny" onClick={toggleWrap}>{wrapLines ? 'No Wrap' : 'Wrap'}</button>
                   <button className="btn tiny" onClick={clearCode} disabled={!code.trim()}>Clear</button>
                   <button className="btn tiny" onClick={copyCode}>{copied ? 'Copied' : 'Copy'}</button>
                   <button className="btn primary tiny" disabled={loading || !code.trim()} onClick={reviewCode}>{loading ? 'Reviewing...' : 'Review Code'}</button>
+                  <button className="btn tiny" disabled={fixing || !code.trim()} onClick={requestFix}>{fixing ? 'Fixing...' : 'AI Fix'}</button>
                 </div>
               </div>
-              <div className="editor-wrapper" data-loading={loading}>
+              <div className="subtools">
+                <div className="focus-group" aria-label="Review focus">
+                  {[{k:'security',l:'Security'},{k:'performance',l:'Performance'},{k:'readability',l:'Readability'},{k:'error-handling',l:'Error Handling'},{k:'type-safety',l:'Type Safety'},{k:'best-practices',l:'Best Practices'}].map(opt => (
+                    <label key={opt.k} className={`chip ${focus.includes(opt.k)?'active':''}`}>
+                      <input type="checkbox" checked={focus.includes(opt.k)} onChange={(e)=>{
+                        setFocus(prev=> e.target.checked ? Array.from(new Set([...prev, opt.k])) : prev.filter(x=>x!==opt.k));
+                      }} />{opt.l}
+                    </label>
+                  ))}
+                </div>
+                <div className="tone-group" role="tablist" aria-label="Tone">
+                  {[{k:'mentor',l:'Mentor'},{k:'strict',l:'Strict'},{k:'concise',l:'Concise'}].map(t=> (
+                    <button key={t.k} className={`chip-btn ${tone===t.k?'active':''}`} onClick={()=>setTone(t.k)}>{t.l}</button>
+                  ))}
+                  <button className="btn tiny" onClick={shareLink}>Share</button>
+                </div>
+              </div>
+              <div className={`editor-wrapper ${wrapLines ? '' : 'no-wrap'}`} data-loading={loading}>
                 <Editor
                   value={code}
                   onValueChange={setCode}
@@ -419,13 +607,28 @@ function App() {
                 {loading && <div className="overlay loading-blur"><div className="spinner" /></div>}
               </div>
               {error && <div className="alert error" role="alert">{error}</div>}
+              {fixError && <div className="alert error" role="alert">{fixError}</div>}
             </section>
 
-            <section className="panel right" aria-label="AI review output">
+            {/* Drag divider */}
+            <div className={`divider ${isResizing?'active':''}`} onMouseDown={onStartResize} />
+
+            <section className="panel right" aria-label="AI review output" style={{flex: '0 0 auto', width: `${100-leftWidth}%`}}>
               <div className="panel-header">
                 <h2>AI Review</h2>
-                <div className="panel-tools small-hint">{loading ? 'Generating...' : review ? 'Complete' : 'Idle'}</div>
+                <div className="panel-tools">
+                  <div className="small-hint">{loading ? 'Generating...' : review ? 'Complete' : 'Idle'}</div>
+                  <button className="btn tiny" onClick={copyReview} disabled={!review}>Copy</button>
+                  <button className="btn tiny" onClick={exportReview} disabled={!review}>Export MD</button>
+                </div>
               </div>
+              {score !== null && (
+                <div className="score-wrap">
+                  <div className="score-label">Score</div>
+                  <div className="score-bar"><div className="score-fill" style={{width: `${(score/10)*100}%`}} /></div>
+                  <div className="score-value">{score.toFixed(1)}/10</div>
+                </div>
+              )}
               {review && (
                 <div className="content-stats">
                   <span>Review Length: {review.length.toLocaleString()} characters</span>
@@ -437,7 +640,7 @@ function App() {
                   <div className="review-progress-bar" style={{ width: `${scrollProgress}%` }}></div>
                 </div>
               )}
-              <div ref={reviewOutputRef} className="review-output custom-scroll" data-empty={!review && !loading}>
+              <div ref={reviewOutputRef} className="review-output custom-scroll" data-empty={!review && !loading && !fix && !fixing}>
                 <div className="review-content">
                   {review && review.length > 5000 && (
                     <div className="large-content-warning">
@@ -456,7 +659,7 @@ function App() {
                       {Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton" />)}
                     </div>
                   )}
-                  {!loading && !review && !error && (
+                  {!loading && !fixing && !review && !fix && !error && !fixError && (
                     <div className="placeholder fade-in">
                       Run a review to see AI feedback here.
                       <br/><br/>
@@ -468,6 +671,16 @@ function App() {
                   {!loading && review && (
                     <div className="review-markdown fade-in" key={review.slice(0,40)}>
                       <Markdown rehypePlugins={[rehypeHighlight]}>{review}</Markdown>
+                    </div>
+                  )}
+                  {!fixing && fix && (
+                    <div className="review-markdown fade-in" style={{marginTop: '1rem'}} key={fix.slice(0,40)}>
+                      <h3>AI Fix</h3>
+                      <Markdown rehypePlugins={[rehypeHighlight]}>{fix}</Markdown>
+                      <div style={{marginTop:'0.5rem'}}>
+                        <button className="btn tiny" onClick={copyFix}>Copy Fix</button>
+                        <button className="btn tiny" onClick={exportFix}>Export Fix</button>
+                      </div>
                     </div>
                   )}
                 </div>

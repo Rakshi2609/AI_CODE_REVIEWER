@@ -58,7 +58,7 @@ OUTPUT FORMAT (adapt for large code):
 });
 
 
-async function generateContent(code, language) {
+async function generateContent(code, language, options = {}) {
     try {
         // Check code size and adjust approach
         const codeSize = Buffer.byteLength(code, 'utf8');
@@ -86,6 +86,15 @@ async function generateContent(code, language) {
             auto: `• Detect the language and tailor feedback and code examples accordingly.`
         }[lang];
 
+        const tone = (options.tone || 'mentor').toLowerCase();
+        const toneNote = tone === 'strict' ? 'Tone: STRICT and rigorous; focus on correctness and standards; be direct and concise.'
+                          : tone === 'concise' ? 'Tone: CONCISE; prioritize brevity while keeping essential guidance.'
+                          : 'Tone: MENTOR; be supportive and educational with clear, actionable suggestions.';
+        const focusList = Array.isArray(options.focus) && options.focus.length
+          ? `Focus Areas: ${options.focus.map(f=>`
+• ${f.replace(/-/g,' ')}`).join('')}
+` : '';
+
         let prompt;
         if (codeSize > 50000) { // For very large code (>50KB)
             prompt = `LARGE CODEBASE REVIEW (${Math.round(codeSize/1024)}KB):
@@ -94,6 +103,7 @@ Please provide a comprehensive but focused review of this large codebase. Focus 
 Language: ${languageLabel}
 Language-specific priorities:
 ${languageFocus}
+${focusList}${toneNote}
 
 Code to review:
 ${code}`;
@@ -103,6 +113,7 @@ ${code}`;
 Language: ${languageLabel}
 Language-specific priorities:
 ${languageFocus}
+${focusList}${toneNote}
 
 ${code}`;
         }
