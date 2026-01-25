@@ -37,6 +37,7 @@ AI_CODE_REVIEWER/
 ### Prerequisites
 - Node.js (v14 or higher)
 - npm or yarn package manager
+- Google Gemini API key ([Get it here](https://makersuite.google.com/app/apikey))
 
 ### Installation
 
@@ -50,6 +51,13 @@ AI_CODE_REVIEWER/
    ```bash
    cd BackEnd
    npm install
+   
+   # Create .env file from example
+   cp .env.example .env
+   
+   # Edit .env and add your Google Gemini API key
+   # GOOGLE_GEMINI_KEY=your_actual_api_key_here
+   
    npm start
    ```
 
@@ -57,12 +65,35 @@ AI_CODE_REVIEWER/
    ```bash
    cd Frontend
    npm install
+   
+   # Create .env file from example
+   cp .env.example .env
+   
+   # The default values should work for local development
+   
    npm run dev
    ```
 
 4. **Access the application**
    - Backend API: `http://localhost:3000` (or configured port)
    - Frontend UI: `http://localhost:5173` (default Vite port)
+
+## Environment Variables
+
+### Backend Variables (BackEnd/.env)
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `GOOGLE_GEMINI_KEY` | Google Gemini AI API key | - | ✅ Yes |
+| `PORT` | Server port | 3000 | No |
+| `CORS_ORIGIN` | Allowed frontend origin | http://localhost:5173 | No |
+| `NODE_ENV` | Environment mode | development | No |
+
+### Frontend Variables (Frontend/.env)
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `VITE_API_BASE_URL` | Backend API base URL | http://localhost:3000 | No |
+
+**Note**: For production deployment, update `CORS_ORIGIN` in backend and `VITE_API_BASE_URL` in frontend to your actual domain URLs.
 
 ## Project Structure
 
